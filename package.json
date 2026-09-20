@@ -1,0 +1,31 @@
+{
+  "name": "persian-gif-bot",
+  "version": "1.0.0",
+  "description": "High-performance Persian GIF Telegram Bot powered by Cloudflare Workers, grammY, and D1 FTS5",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:local": "wrangler d1 execute persian-gif-db --local --file=./schema.sql",
+    "db:remote": "wrangler d1 execute persian-gif-db --remote --file=./schema.sql"
+  },
+  "keywords": [
+    "telegram-bot",
+    "cloudflare-workers",
+    "grammy",
+    "cloudflare-d1",
+    "fts5",
+    "inline-bot"
+  ],
+  "author": "Alireza Rahimapanah",
+  "license": "MIT",
+  "dependencies": {
+    "grammy": "^1.35.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^3.114.17"
+  }
+}
