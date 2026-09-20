@@ -10,4 +10,4 @@ STORAGE_CHANNEL_ID = "-1004401697854"
 [[d1_databases]]
 binding = "DB"
 database_name = "persian-gif-db"
-database_id = "local-persian-gif-db"
+database_id = "12665dc8-573c-4200-b4d1-94c696d8c036"
