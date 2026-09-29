@@ -13,15 +13,27 @@ export function normalizePersianText(text: string): string {
 }
 
 /**
+ * Extracts unique emoji sequences from text.
+ */
+export function extractEmojis(text: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/\p{Extended_Pictographic}/gu) || [];
+  return Array.from(new Set(matches));
+}
+
+/**
  * Sanitizes user input for safe SQLite FTS5 MATCH queries.
- * Strips special operators to prevent SQLite query syntax errors.
+ * Strips emojis and special operators to prevent SQLite query syntax errors.
  */
 export function sanitizeFtsQuery(query: string): string {
   const normalized = normalizePersianText(query);
   if (!normalized) return '';
 
+  // Remove emojis before passing to FTS to avoid tokenizer issues
+  const withoutEmojis = normalized.replace(/\p{Extended_Pictographic}/gu, ' ');
+
   // Remove FTS5 special characters: * " ' - + : ^ ( ) { } [ ] ~
-  const cleaned = normalized.replace(/[*"'`~^:+\-(){}[\]\\/]/g, ' ');
+  const cleaned = withoutEmojis.replace(/[*"'`~^:+\-(){}[\]\\/]/g, ' ');
 
   // Split into tokens, filter out empty strings and FTS boolean keywords
   const tokens = cleaned
@@ -54,22 +66,25 @@ export function parseCaptionMetadata(caption?: string): {
   const normalized = normalizePersianText(caption);
   const lines = normalized.split('\n').map((l) => l.trim()).filter(Boolean);
 
-  // Extract hashtags
-  const hashtags = (normalized.match(/#([\p{L}\p{N}_]+)/gu) || []).map((h) =>
+  // Extract hashtags (including tags with emojis)
+  const hashtags = (normalized.match(/#[^\s#]+/gu) || []).map((h) =>
     h.replace(/^#/, '')
   );
 
   // First line is used as the title (truncated to 60 chars)
-  const rawTitle = lines[0]?.replace(/#[\p{L}\p{N}_]+/gu, '').trim() || 'گیف فارسی';
+  const rawTitle = lines[0]?.replace(/#[^\s#]+/gu, '').trim() || 'گیف فارسی';
   const title = rawTitle.length > 60 ? `${rawTitle.slice(0, 57)}...` : rawTitle || 'گیف فارسی';
+
+  // Extract all emojis in the caption
+  const emojis = extractEmojis(normalized);
 
   // Words and hashtags combined into tags
   const words = normalized
-    .replace(/#[\p{L}\p{N}_]+/gu, '')
+    .replace(/#[^\s#]+/gu, '')
     .split(/[\s,،._-]+/)
-    .filter((w) => w.length > 1);
+    .filter((w) => w.length > 1 || /\p{Extended_Pictographic}/u.test(w));
 
-  const uniqueTags = Array.from(new Set([...hashtags, ...words])).join(' ');
+  const uniqueTags = Array.from(new Set([...hashtags, ...words, ...emojis])).join(' ');
 
   return {
     title,
