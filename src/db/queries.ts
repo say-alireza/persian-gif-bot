@@ -4,7 +4,8 @@ import { sanitizeFtsQuery, extractEmojis, normalizePersianText } from './sanitiz
 /**
  * Searches active GIFs using a hybrid approach:
  * - FTS5 full-text match for Persian/English text.
- * - Direct LIKE match on caption/title/tags for emoji and sticker tags.
+ * - Multi-variant LIKE matching on caption/title/tags for all Telegram emojis,
+ *   supporting variations (with/without \uFE0F) and skin tones.
  */
 export async function searchGifs(
   db: D1Database,
@@ -53,11 +54,26 @@ export async function searchGifs(
   // Case 3: Combined Text + Emoji Search
   if (ftsQuery && emojis.length > 0) {
     try {
-      const emojiConditions = emojis
-        .map(() => `(g.caption LIKE ? OR g.title LIKE ? OR g.tags LIKE ?)`)
-        .join(' AND ');
+      const conditions: string[] = [];
+      const binds: string[] = [];
 
-      const emojiBinds = emojis.flatMap((e) => [`%${e}%`, `%${e}%`, `%${e}%`]);
+      for (const emoji of emojis) {
+        const canonical = emoji.replace(/[\uFE0E\uFE0F]/g, '');
+        const base = canonical.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
+        const variants = Array.from(new Set([emoji, canonical, base].filter(Boolean)));
+
+        const variantConditions = variants.map(
+          () => `(g.caption LIKE ? OR g.title LIKE ? OR g.tags LIKE ?)`
+        );
+        conditions.push(`(${variantConditions.join(' OR ')})`);
+
+        for (const v of variants) {
+          const pattern = `%${v}%`;
+          binds.push(pattern, pattern, pattern);
+        }
+      }
+
+      const whereClause = conditions.join(' AND ');
 
       const { results } = await db
         .prepare(
@@ -65,18 +81,17 @@ export async function searchGifs(
            FROM gifs g
            JOIN gifs_fts f ON g.id = f.rowid
            WHERE gifs_fts MATCH ? AND g.status = 'active'
-             AND ${emojiConditions}
+             AND ${whereClause}
            ORDER BY g.views DESC, g.id DESC
            LIMIT ?`
         )
-        .bind(ftsQuery, ...emojiBinds, limit)
+        .bind(ftsQuery, ...binds, limit)
         .all<GifSearchResult>();
 
       if (results && results.length > 0) {
         return results;
       }
 
-      // If combined returned 0, fallback to matching the emojis
       return searchGifsByEmojis(db, emojis, limit);
     } catch (err) {
       console.error('Combined Search Query Error:', err);
@@ -90,6 +105,7 @@ export async function searchGifs(
 
 /**
  * Searches active GIFs containing specific emojis in caption, title, or tags.
+ * Resolves variation selectors and skin tone differences so all emoji variants match.
  */
 export async function searchGifsByEmojis(
   db: D1Database,
@@ -98,22 +114,37 @@ export async function searchGifsByEmojis(
 ): Promise<GifSearchResult[]> {
   if (emojis.length === 0) return getRecentGifs(db, limit);
 
-  const emojiConditions = emojis
-    .map(() => `(caption LIKE ? OR title LIKE ? OR tags LIKE ?)`)
-    .join(' AND ');
+  const conditions: string[] = [];
+  const binds: string[] = [];
 
-  const emojiBinds = emojis.flatMap((e) => [`%${e}%`, `%${e}%`, `%${e}%`]);
+  for (const emoji of emojis) {
+    const canonical = emoji.replace(/[\uFE0E\uFE0F]/g, '');
+    const base = canonical.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
+    const variants = Array.from(new Set([emoji, canonical, base].filter(Boolean)));
+
+    const variantConditions = variants.map(
+      () => `(caption LIKE ? OR title LIKE ? OR tags LIKE ?)`
+    );
+    conditions.push(`(${variantConditions.join(' OR ')})`);
+
+    for (const v of variants) {
+      const pattern = `%${v}%`;
+      binds.push(pattern, pattern, pattern);
+    }
+  }
+
+  const whereClause = conditions.join(' AND ');
 
   try {
     const { results } = await db
       .prepare(
         `SELECT id, file_id, title
          FROM gifs
-         WHERE status = 'active' AND ${emojiConditions}
+         WHERE status = 'active' AND ${whereClause}
          ORDER BY views DESC, id DESC
          LIMIT ?`
       )
-      .bind(...emojiBinds, limit)
+      .bind(...binds, limit)
       .all<GifSearchResult>();
 
     return results || [];
