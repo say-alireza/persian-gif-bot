@@ -13,4 +13,4 @@ MAX_MEDIA_DURATION_SEC = "30"
 [[d1_databases]]
 binding = "DB"
 database_name = "persian-gif-db"
-database_id = "3d6bc2ef-36c5-4960-bf02-421cb129e143"
+database_id = "12665dc8-573c-4200-b4d1-94c696d8c036"

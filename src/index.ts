@@ -24,12 +24,20 @@ export default {
         }
       }
 
-      const bot = createBot(env.BOT_TOKEN, env);
-      const handleUpdate = webhookCallback(bot, 'cloudflare-mod', {
-        secretToken: env.SECRET_TOKEN,
-      });
+      try {
+        const bot = createBot(env.BOT_TOKEN, env);
+        const handleUpdate = webhookCallback(bot, 'cloudflare-mod', {
+          secretToken: env.SECRET_TOKEN,
+        });
 
-      return handleUpdate(request);
+        return await handleUpdate(request);
+      } catch (err: any) {
+        console.error('Unhandled webhook error:', err);
+        return new Response(JSON.stringify({ error: err?.message || String(err), stack: err?.stack }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     return new Response('Not Found', { status: 404 });
