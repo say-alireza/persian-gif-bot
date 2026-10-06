@@ -35,9 +35,16 @@ const admin = [
   { command: 'pending', description: 'گیف‌های در انتظار بررسی' },
 ];
 
-await call('setMyCommands', { commands: common });
-// Chat-scoped lists only apply once the admin has started the bot.
-for (const id of adminIds) {
-  await call('setMyCommands', { commands: admin, scope: { type: 'chat', chat_id: id } });
+async function main() {
+  await call('setMyCommands', { commands: common });
+  // Chat-scoped lists only apply once the admin has started the bot.
+  for (const id of adminIds) {
+    await call('setMyCommands', { commands: admin, scope: { type: 'chat', chat_id: id } });
+  }
+  console.log(`Done. Default commands set; admin lists set for ${adminIds.length} admin(s).`);
 }
-console.log(`Done. Default commands set; admin lists set for ${adminIds.length} admin(s).`);
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
