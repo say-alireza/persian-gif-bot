@@ -1,7 +1,7 @@
 import { Context } from 'grammy';
 import { Env } from '../types/env';
 import { parseCaptionMetadata } from '../db/sanitize';
-import { upsertGif, updateGifCaption } from '../db/queries';
+import { ingestChannelGif, updateChannelCaption } from '../db/submissions';
 
 /**
  * Handles new media posts in the storage channel.
@@ -21,7 +21,7 @@ export async function handleChannelPost(ctx: Context, env: Env): Promise<void> {
 
   const { title, tags, cleanCaption } = parseCaptionMetadata(post.caption);
 
-  await upsertGif(env.DB, {
+  await ingestChannelGif(env.DB, {
     file_id: media.file_id,
     file_unique_id: media.file_unique_id,
     title,
@@ -46,5 +46,5 @@ export async function handleEditedChannelPost(ctx: Context, env: Env): Promise<v
 
   const { title, tags, cleanCaption } = parseCaptionMetadata(post.caption);
 
-  await updateGifCaption(env.DB, media.file_unique_id, title, cleanCaption, tags);
+  await updateChannelCaption(env.DB, media.file_unique_id, title, cleanCaption, tags);
 }
