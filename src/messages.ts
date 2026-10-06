@@ -78,7 +78,8 @@ export const M = {
   reviewCaption: (g: GifEntity) =>
     truncate(
       `گیف شماره ${g.id}\nعنوان: ${g.title}\n${TAGS}: ${g.tags || '-'}\n` +
-        `${SUBMITTER}: ${g.submitted_by_username ?? '-'} (${g.submitted_by ?? '-'})`,
+        `${SUBMITTER}: ${g.submitted_by_username ?? '-'}\n` +
+        `شناسه عددی: \u200E${g.submitted_by ?? '-'}`,
       1000
     ),
   reviewOutcomeApproved: (admin: string) => `تأیید شد توسط ${admin}`,
@@ -146,8 +147,12 @@ export const M = {
       `${TAGS}: ${g.tags || '-'}`,
       `منبع: ${g.source === 'user' ? 'کاربر' : 'کانال'}`,
       `وضعیت: ${STATUS_FA[g.status] ?? g.status}`,
-      `${SUBMITTER}: ${g.submitted_by ? `${g.submitted_by_username ?? '-'} (${g.submitted_by}) - ${g.submitted_at ?? '-'}` : '-'}`,
-      `${REVIEWER}: ${g.reviewed_by ? `${g.reviewed_by_username ?? '-'} (${g.reviewed_by}) - ${g.reviewed_at ?? '-'}` : '-'}`,
+      `${SUBMITTER}: ${g.submitted_by_username ?? '-'}`,
+      `شناسه عددی کاربر: ${g.submitted_by ? `\u200E${g.submitted_by}` : '-'}`,
+      ...(g.submitted_at ? [`زمان ارسال: ${g.submitted_at}`] : []),
+      `${REVIEWER}: ${g.reviewed_by_username ?? '-'}`,
+      ...(g.reviewed_by ? [`شناسه عددی بررسی‌کننده: \u200E${g.reviewed_by}`] : []),
+      ...(g.reviewed_at ? [`زمان بررسی: ${g.reviewed_at}`] : []),
       g.reject_reason ? `دلیل رد: ${rejectReasonLabel(g.reject_reason)}` : null,
       '',
       'تاریخچه:',
