@@ -27,11 +27,12 @@ function args(ctx: Context): string {
 /** Builds the persistent 2-column reply keyboard for admins */
 export function getAdminKeyboard(isOwnerUser: boolean): Keyboard {
   const kb = new Keyboard();
-  kb.text(M.btnPending).text(M.btnWho).row();
-  kb.text(M.btnBan).text(M.btnUnban).row();
   if (isOwnerUser) {
+    kb.text(M.btnPending).text(M.btnWho).row();
+    kb.text(M.btnBan).text(M.btnUnban).row();
     kb.text(M.btnAdmins).text(M.btnAdminHelp).row();
   } else {
+    kb.text(M.btnPending).text(M.btnWho).row();
     kb.text(M.btnAdminHelp).text(M.btnCancelProcess).row();
   }
   return kb.resized().persistent();
@@ -73,7 +74,12 @@ export async function handleWho(ctx: Context, env: Env): Promise<void> {
 }
 
 export async function handleBan(ctx: Context, env: Env): Promise<void> {
-  if (!ctx.from || !(await isUserAdmin(env, ctx.from.id))) return;
+  if (!ctx.from || !isOwner(env, ctx.from.id)) {
+    if (ctx.from && (await isUserAdmin(env, ctx.from.id))) {
+      await ctx.reply(M.notAllowed);
+    }
+    return;
+  }
   const [idStr, ...rest] = args(ctx).split(/\s+/);
   if (!/^\d{1,15}$/.test(idStr ?? '')) {
     await ctx.reply(M.banUsage);
@@ -84,7 +90,12 @@ export async function handleBan(ctx: Context, env: Env): Promise<void> {
 }
 
 export async function handleUnban(ctx: Context, env: Env): Promise<void> {
-  if (!ctx.from || !(await isUserAdmin(env, ctx.from.id))) return;
+  if (!ctx.from || !isOwner(env, ctx.from.id)) {
+    if (ctx.from && (await isUserAdmin(env, ctx.from.id))) {
+      await ctx.reply(M.notAllowed);
+    }
+    return;
+  }
   const idStr = args(ctx).split(/\s+/)[0];
   if (!/^\d{1,15}$/.test(idStr ?? '')) {
     await ctx.reply(M.unbanUsage);
@@ -145,12 +156,20 @@ export async function handleAdminMenuText(
   }
 
   if (text === M.btnBan) {
+    if (!isOwner(env, user.id)) {
+      await ctx.reply(M.notAllowed);
+      return;
+    }
     await setAdminSession(env.DB, user.id, 'awaiting_ban');
     await ctx.reply(M.adminBanPrompt, { parse_mode: 'Markdown' });
     return;
   }
 
   if (text === M.btnUnban) {
+    if (!isOwner(env, user.id)) {
+      await ctx.reply(M.notAllowed);
+      return;
+    }
     await setAdminSession(env.DB, user.id, 'awaiting_unban');
     await ctx.reply(M.adminUnbanPrompt);
     return;
@@ -198,6 +217,10 @@ export async function handleAdminMenuText(
 
   if (session.action === 'awaiting_ban') {
     await clearAdminSession(env.DB, user.id);
+    if (!isOwner(env, user.id)) {
+      await ctx.reply(M.notAllowed);
+      return;
+    }
     const [idStr, ...rest] = text.split(/\s+/);
     if (!/^\d{1,15}$/.test(idStr ?? '')) {
       await ctx.reply(M.invalidUserId);
@@ -210,6 +233,10 @@ export async function handleAdminMenuText(
 
   if (session.action === 'awaiting_unban') {
     await clearAdminSession(env.DB, user.id);
+    if (!isOwner(env, user.id)) {
+      await ctx.reply(M.notAllowed);
+      return;
+    }
     const idStr = text.split(/\s+/)[0];
     if (!/^\d{1,15}$/.test(idStr ?? '')) {
       await ctx.reply(M.invalidUserId);
