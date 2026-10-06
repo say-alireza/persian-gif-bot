@@ -10,11 +10,12 @@ import { sanitizeFtsQuery, extractEmojis, normalizePersianText } from './sanitiz
 export async function searchGifs(
   db: D1Database,
   rawQuery: string,
-  limit = 50
+  limit = 50,
+  offset = 0
 ): Promise<GifSearchResult[]> {
   const trimmed = rawQuery.trim();
   if (!trimmed) {
-    return getRecentGifs(db, limit);
+    return getRecentGifs(db, limit, offset);
   }
 
   const emojis = extractEmojis(trimmed);
@@ -22,7 +23,7 @@ export async function searchGifs(
 
   // Case 1: Pure Emoji / Sticker Search
   if (!ftsQuery && emojis.length > 0) {
-    return searchGifsByEmojis(db, emojis, limit);
+    return searchGifsByEmojis(db, emojis, limit, offset);
   }
 
   // Case 2: Pure Text Search (FTS5 with LIKE fallback)
@@ -35,19 +36,19 @@ export async function searchGifs(
            JOIN gifs_fts f ON g.id = f.rowid
            WHERE gifs_fts MATCH ? AND g.status = 'active'
            ORDER BY g.views DESC, g.id DESC
-           LIMIT ?`
+           LIMIT ? OFFSET ?`
         )
-        .bind(ftsQuery, limit)
+        .bind(ftsQuery, limit, offset)
         .all<GifSearchResult>();
 
       if (results && results.length > 0) {
         return results;
       }
 
-      return searchGifsByTextLike(db, trimmed, limit);
+      return searchGifsByTextLike(db, trimmed, limit, offset);
     } catch (err) {
       console.error('FTS Search Query Error:', err);
-      return searchGifsByTextLike(db, trimmed, limit);
+      return searchGifsByTextLike(db, trimmed, limit, offset);
     }
   }
 
@@ -83,24 +84,24 @@ export async function searchGifs(
            WHERE gifs_fts MATCH ? AND g.status = 'active'
              AND ${whereClause}
            ORDER BY g.views DESC, g.id DESC
-           LIMIT ?`
+           LIMIT ? OFFSET ?`
         )
-        .bind(ftsQuery, ...binds, limit)
+        .bind(ftsQuery, ...binds, limit, offset)
         .all<GifSearchResult>();
 
       if (results && results.length > 0) {
         return results;
       }
 
-      return searchGifsByEmojis(db, emojis, limit);
+      return searchGifsByEmojis(db, emojis, limit, offset);
     } catch (err) {
       console.error('Combined Search Query Error:', err);
-      return searchGifsByEmojis(db, emojis, limit);
+      return searchGifsByEmojis(db, emojis, limit, offset);
     }
   }
 
   // Fallback for edge cases
-  return searchGifsByTextLike(db, trimmed, limit);
+  return searchGifsByTextLike(db, trimmed, limit, offset);
 }
 
 /**
@@ -110,9 +111,10 @@ export async function searchGifs(
 export async function searchGifsByEmojis(
   db: D1Database,
   emojis: string[],
-  limit = 50
+  limit = 50,
+  offset = 0
 ): Promise<GifSearchResult[]> {
-  if (emojis.length === 0) return getRecentGifs(db, limit);
+  if (emojis.length === 0) return getRecentGifs(db, limit, offset);
 
   const conditions: string[] = [];
   const binds: string[] = [];
@@ -142,15 +144,15 @@ export async function searchGifsByEmojis(
          FROM gifs
          WHERE status = 'active' AND ${whereClause}
          ORDER BY views DESC, id DESC
-         LIMIT ?`
+         LIMIT ? OFFSET ?`
       )
-      .bind(...binds, limit)
+      .bind(...binds, limit, offset)
       .all<GifSearchResult>();
 
     return results || [];
   } catch (err) {
     console.error('Emoji Search Error:', err);
-    return getRecentGifs(db, limit);
+    return getRecentGifs(db, limit, offset);
   }
 }
 
@@ -160,10 +162,11 @@ export async function searchGifsByEmojis(
 export async function searchGifsByTextLike(
   db: D1Database,
   rawText: string,
-  limit = 50
+  limit = 50,
+  offset = 0
 ): Promise<GifSearchResult[]> {
   const normalized = normalizePersianText(rawText);
-  if (!normalized) return getRecentGifs(db, limit);
+  if (!normalized) return getRecentGifs(db, limit, offset);
 
   const pattern = `%${normalized}%`;
 
@@ -175,15 +178,15 @@ export async function searchGifsByTextLike(
          WHERE status = 'active'
            AND (caption LIKE ? OR title LIKE ? OR tags LIKE ?)
          ORDER BY views DESC, id DESC
-         LIMIT ?`
+         LIMIT ? OFFSET ?`
       )
-      .bind(pattern, pattern, pattern, limit)
+      .bind(pattern, pattern, pattern, limit, offset)
       .all<GifSearchResult>();
 
     return results || [];
   } catch (err) {
     console.error('Text LIKE Search Error:', err);
-    return getRecentGifs(db, limit);
+    return getRecentGifs(db, limit, offset);
   }
 }
 
@@ -192,17 +195,18 @@ export async function searchGifsByTextLike(
  */
 export async function getRecentGifs(
   db: D1Database,
-  limit = 50
+  limit = 50,
+  offset = 0
 ): Promise<GifSearchResult[]> {
   const { results } = await db
     .prepare(
       `SELECT id, file_id, title
        FROM gifs
        WHERE status = 'active'
-       ORDER BY views DESC, id DESC
-       LIMIT ?`
+       ORDER BY id DESC
+       LIMIT ? OFFSET ?`
     )
-    .bind(limit)
+    .bind(limit, offset)
     .all<GifSearchResult>();
 
   return results || [];
