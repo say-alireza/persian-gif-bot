@@ -1,6 +1,10 @@
 import { Env } from '../types/env';
+import { isBotAdminInDb } from '../db/admins';
+
+export const DEFAULT_OWNER_ID = 96092687;
 
 export interface Config {
+  ownerId: number;
   adminIds: Set<number>;
   reviewChatId: string | null;
   dailyCap: number;
@@ -14,7 +18,8 @@ function positiveInt(value: string | undefined, fallback: number): number {
 }
 
 export function getConfig(env: Env): Config {
-  const adminIds = new Set<number>();
+  const ownerId = Number(env.OWNER_ID) || DEFAULT_OWNER_ID;
+  const adminIds = new Set<number>([ownerId]);
   for (const part of (env.ADMIN_IDS ?? '').split(/[\s,]+/)) {
     if (!part) continue;
     const n = Number(part);
@@ -22,6 +27,7 @@ export function getConfig(env: Env): Config {
   }
   const review = (env.REVIEW_CHAT_ID ?? '').trim();
   return {
+    ownerId,
     adminIds,
     reviewChatId: review || null,
     dailyCap: positiveInt(env.DAILY_SUBMISSION_CAP, 5),
@@ -30,7 +36,18 @@ export function getConfig(env: Env): Config {
   };
 }
 
+export function isOwner(env: Env, userId: number | undefined): boolean {
+  if (userId === undefined) return false;
+  return userId === getConfig(env).ownerId;
+}
+
 export function isAdmin(env: Env, userId: number | undefined): boolean {
   if (userId === undefined) return false;
   return getConfig(env).adminIds.has(userId);
+}
+
+export async function isUserAdmin(env: Env, userId: number | undefined): Promise<boolean> {
+  if (userId === undefined) return false;
+  if (isAdmin(env, userId)) return true;
+  return await isBotAdminInDb(env.DB, userId);
 }

@@ -1,7 +1,8 @@
 import { Api, Context, InlineKeyboard, NextFunction } from 'grammy';
 import { Env } from '../types/env';
 import { GifEntity } from '../types/gif';
-import { getConfig, isAdmin } from '../lib/config';
+import { getConfig, isUserAdmin } from '../lib/config';
+import { getBotAdmins } from '../db/admins';
 import { displayName } from '../lib/user';
 import { answerOnce } from '../lib/callback';
 import { M, parseErrorMessage } from '../messages';
@@ -31,9 +32,17 @@ function reasonKeyboard(id: number): InlineKeyboard {
 /** Sends the review message to REVIEW_CHAT_ID, or to every admin by DM. Returns how many succeeded. */
 export async function sendReviewMessage(api: Api, env: Env, gif: GifEntity): Promise<number> {
   const cfg = getConfig(env);
-  const targets: Array<string | number> = cfg.reviewChatId ? [cfg.reviewChatId] : [...cfg.adminIds];
+  const dbAdmins = await getBotAdmins(env.DB);
+  const allTargets = new Set<string | number>();
+  if (cfg.reviewChatId) {
+    allTargets.add(cfg.reviewChatId);
+  } else {
+    for (const id of cfg.adminIds) allTargets.add(id);
+    for (const a of dbAdmins) allTargets.add(a.user_id);
+  }
+
   let sent = 0;
-  for (const target of targets) {
+  for (const target of allTargets) {
     try {
       await api.sendAnimation(target, gif.file_id, {
         caption: M.reviewCaption(gif),
@@ -139,7 +148,7 @@ export async function handleReviewCallback(ctx: Context, env: Env): Promise<void
   await answerOnce(ctx, async () => {
     const user = ctx.from;
     const data = ctx.callbackQuery?.data ?? '';
-    if (!user || !isAdmin(env, user.id)) return M.notAllowed;
+    if (!user || !(await isUserAdmin(env, user.id))) return M.notAllowed;
 
     const rr = RV_REJECT.exec(data);
     if (rr) return finalizeReview(ctx, env, Number(rr[1]), 'rejected', rr[2]);
@@ -172,7 +181,7 @@ export async function handleAdminEditReply(ctx: Context, env: Env, next: NextFun
   const user = ctx.from;
   const text = ctx.msg?.text;
   const reply = ctx.msg?.reply_to_message;
-  if (!user || !text || !reply || !isAdmin(env, user.id)) return next();
+  if (!user || !text || !reply || !(await isUserAdmin(env, user.id))) return next();
 
   const session = await getSession(env.DB, user.id, 'admin_edit');
   if (

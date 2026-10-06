@@ -98,6 +98,47 @@ export const M = {
   pendingNone: 'گیفی در انتظار بررسی نیست.',
   pendingSent: (n: number) => `${n} پیام بررسی دوباره ارسال شد.`,
 
+  // Admin Menu & Management
+  btnPending: 'گیف\u200cهای در انتظار بررسی',
+  btnWho: 'مشخصات ارسال\u200cکننده',
+  btnBan: 'مسدودسازی کاربر',
+  btnUnban: 'رفع مسدودی',
+  btnAdmins: 'مدیریت ادمین\u200cها',
+  btnAdminHelp: 'راهنمای پنل',
+  btnCancelProcess: 'لغو فرآیند',
+
+  adminPanelWelcome: 'به پنل مدیریت ربات گیف فارسی خوش آمدید.\nلطفاً از دکمه\u200cهای زیر برای دسترسی سریع استفاده کنید:',
+  adminHelpText:
+    'راهنمای پنل مدیریت:\n\n' +
+    '• گیف\u200cهای در انتظار: ارسال مجدد موارد منتظر بررسی\n' +
+    '• مشخصات ارسال\u200cکننده: مشاهده اطلاعات فرستنده گیف با شناسه یا ریپلای\n' +
+    '• مسدودسازی: مسدود کردن کاربر اسپمر بر اساس شناسه عددی\n' +
+    '• رفع مسدودی: رفع مسدودیت کاربر\n' +
+    '• مدیریت ادمین\u200cها: افزودن یا حذف ادمین\u200cهای ربات (مخصوص مالک)',
+
+  adminWhoPrompt: 'لطفاً شناسه عددی گیف (ID) را ارسال کنید، یا روی گیف مورد نظر ریپلای کرده و پیام بفرستید:',
+  adminBanPrompt: 'لطفاً شناسه عددی کاربر را برای مسدودسازی ارسال کنید (مثال: `123456789` یا همراه با دلیل):',
+  adminUnbanPrompt: 'لطفاً شناسه عددی کاربر را برای رفع مسدودی ارسال کنید:',
+  adminSessionCanceled: 'عملیات جاری لغو شد.',
+
+  adminManageHeader: (admins: Array<{ user_id: number; username: string | null }>, ownerId: number) => {
+    let out = `👥 مدیریت ادمین‌های ربات\n\nمالک ربات: \`${ownerId}\`\n\nلیست سایر ادمین‌ها:\n`;
+    if (admins.length === 0) {
+      out += 'هیچ ادمین دیگری در دیتابیس ثبت نشده است.';
+    } else {
+      admins.forEach((a, idx) => {
+        out += `${idx + 1}. \`${a.user_id}\` ${a.username ? `(@${a.username})` : ''}\n`;
+      });
+    }
+    return out;
+  },
+
+  promptAddAdmin: 'لطفاً شناسه عددی تلگرام ادمین جدید را ارسال کنید (اختیاری: یوزرنیم را با فاصله بنویسید، مثل `123456789 username`):',
+  adminAddedSuccess: (id: number) => `ادمین جدید با شناسه \`${id}\` با موفقیت اضافه شد.`,
+  adminRemovedSuccess: (id: number) => `ادمین با شناسه \`${id}\` با موفقیت حذف شد.`,
+  cannotRemoveOwner: 'مالک اصلی ربات قابل حذف نیست.',
+  invalidUserId: 'شناسه ارسالی نامعتبر است. لطفاً یک عدد صحیح ارسال کنید.',
+
   whoOutput: (g: GifEntity, audit: AuditEntry[]) =>
     [
       `شناسه: ${g.id}`,

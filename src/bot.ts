@@ -11,7 +11,14 @@ import {
   handleUnsupportedMedia,
 } from './handlers/submission';
 import { handleAdminEditReply, handleReviewCallback } from './handlers/review';
-import { handleBan, handlePending, handleUnban, handleWho } from './handlers/admin';
+import {
+  handleAdminCallback,
+  handleAdminMenuText,
+  handleBan,
+  handlePending,
+  handleUnban,
+  handleWho,
+} from './handlers/admin';
 
 /**
  * Creates and configures the grammY bot instance for Cloudflare Workers.
@@ -25,7 +32,7 @@ export function createBot(token: string, env: Env): Bot {
   });
 
   // 1. Commands (consumed here; they never reach the text handlers)
-  bot.command(['start', 'help'], handleStartCommand);
+  bot.command(['start', 'help'], (ctx) => handleStartCommand(ctx, env));
   bot.command('cancel', (ctx) => handleCancel(ctx, env));
   bot.command('who', (ctx) => handleWho(ctx, env));
   bot.command('ban', (ctx) => handleBan(ctx, env));
@@ -35,6 +42,7 @@ export function createBot(token: string, env: Env): Bot {
   // 2. Callbacks
   bot.callbackQuery(/^sub:(ok|no)$/, (ctx) => handleSubmissionCallback(ctx, env));
   bot.callbackQuery(/^rv:/, (ctx) => handleReviewCallback(ctx, env));
+  bot.callbackQuery(/^adm:/, (ctx) => handleAdminCallback(ctx, env));
 
   // 3. Private-chat media. The animation handler never calls next(), so animations
   //    (which Telegram also exposes as `document`) never reach the unsupported-media handler.
@@ -53,8 +61,9 @@ export function createBot(token: string, env: Env): Bot {
     (ctx) => handleUnsupportedMedia(ctx)
   );
 
-  // 4. Text: admin edit replies (any chat), then private submission sessions
+  // 4. Text: admin edit replies (any chat), then admin menu texts, then private submission sessions
   bot.on('message:text', (ctx, next) => handleAdminEditReply(ctx, env, next));
+  priv.on('message:text', (ctx, next) => handleAdminMenuText(ctx, env, next));
   priv.on('message:text', (ctx, next) => handleSessionText(ctx, env, next));
 
   // 5. Existing handlers
